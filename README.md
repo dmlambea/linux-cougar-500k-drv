@@ -8,6 +8,28 @@ A very basic but functional Linux driver for the Cougar 500k Gaming Keyboard.
 
 This driver has been built and tested in Ubuntu Server 18.04 LTS, kernel 4.15.0-23-generic. Please refer to DKMS documentation (e.g., https://help.ubuntu.com/community/DKMS) for instructions on how to build a DKMS module for your distribution.
 
+## Create the docker build image
+
+Run the following command to create a Docker build image:
+
+ docker build -t dkmsbuilder .
+
+Where `dkmsbuilder` is the container's image name (you can use your own name) and `.` is the directory where the file `Dockerfile` resides (this project's root).
+
+## Launch the module builder script
+
+Run:
+
+ ./build_module_package.sh dkmsbuilder
+
+Where `dkmsbuilder` should match the container's image name you created before. This script will search for the module's source code in the `./module` directory and will leave the resulting **.deb** file in the directory `./build`.
+
+Note that the container has been created to build modules as non-root user ('nobody:nogroup', to be precise). So your `./build` directory should be writable by nobody:nogroup.
+
+## Install the module
+
+Install the **.deb** file as usual.
+
 The `hid_generic` module must be unloaded before plugging in the keyboard. Otherwise, `hid_generic` will take on the device and this module will not have any effect.
 
 # TODO list and known bugs
