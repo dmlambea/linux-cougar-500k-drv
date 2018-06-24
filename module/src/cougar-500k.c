@@ -70,10 +70,16 @@ static struct hid_device_id cougar_id_table[] = {
     {}
 };
 
+static int cougar_g6_is_space = 1;
+module_param_named(g6_is_space, cougar_g6_is_space, int, 0600);
+MODULE_PARM_DESC(g6_is_space, "If set, G6 programmable key sends SPACE instead of F18 (0=off, 1=on) (default=1)");
+
 MODULE_AUTHOR(DRIVER_AUTHOR);
 MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE(DRIVER_LICENSE);
+
 MODULE_DEVICE_TABLE(hid, cougar_id_table);
+MODULE_INFO(key_mappings, "G1-G6 are mapped to F13-F18");
 
 static __u8 cougar_500k_rdesc_reserved_intf_fixup[] = {
     0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
@@ -94,11 +100,11 @@ static __u8 cougar_500k_rdesc_reserved_intf_fixup[] = {
 /* Default key mappings */
 static unsigned char cougar_mapping[][2] = {
     { COUGAR_KEY_G1,   KEY_F13 },
-    { COUGAR_KEY_G2,   KEY_F13 },
-    { COUGAR_KEY_G3,   KEY_F13 },
-    { COUGAR_KEY_G4,   KEY_F13 },
-    { COUGAR_KEY_G5,   KEY_F13 },
-    { COUGAR_KEY_G6,   KEY_SPACE },
+    { COUGAR_KEY_G2,   KEY_F14 },
+    { COUGAR_KEY_G3,   KEY_F15 },
+    { COUGAR_KEY_G4,   KEY_F16 },
+    { COUGAR_KEY_G5,   KEY_F17 },
+    { COUGAR_KEY_G6,   KEY_F18 },           // This is handled individually
     { COUGAR_KEY_LOCK, KEY_SCREENLOCK },
     { 0, 0 },
 };
@@ -190,7 +196,6 @@ static struct hid_device *cougar_get_sibling_hid_device(struct hid_device *hdev,
  */
 static int cougar_probe(struct hid_device *hdev, const struct hid_device_id *id) {
     struct cougar_data *internal = NULL;
-    struct usb_device *device;
     struct hid_device *siblingHdev;
     int ret;
 
@@ -279,7 +284,7 @@ static int cougar_input_configured(struct hid_device *hdev, struct hid_input *hi
 static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size) {
     struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
     struct cougar_data *internal;
-    char code, action;
+    unsigned char action, code, transcode;
     int i;
 
     if (intf->cur_altsetting->desc.bInterfaceNumber != COUGAR_RESERVED_INTFNO) {
@@ -294,8 +299,13 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report, 
     /* Try normal key mappings */
     for (i = 0; cougar_mapping[i][0]; i++) {
         if (cougar_mapping[i][0] == code) {
+            if (code == COUGAR_KEY_G6 && cougar_g6_is_space) {
+                transcode = KEY_SPACE;
+            } else {
+                transcode = cougar_mapping[i][1];
+            }
             internal = hid_get_drvdata(hdev);
-            input_event(internal->input, EV_KEY, cougar_mapping[i][1], action);
+            input_event(internal->input, EV_KEY, transcode, action);
             input_sync(internal->input);
             return -1;
         }
