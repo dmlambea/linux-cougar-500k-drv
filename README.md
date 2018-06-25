@@ -1,8 +1,8 @@
 # linux-cougar-500k-drv
 
-A very basic but functional Linux driver for the Cougar 500k Gaming Keyboard.
+A functional Linux driver for the Cougar 500k Gaming Keyboard.
 
-**Note:** although this driver makes the keyboard usable, it is just a workaround driver so that the keyboard no longer freezes when an extended key is pressed. This is not final nor production-quality code. Please read https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1511511 for a description of the bug this driver tries to solve.
+This driver solves the bug described here: https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1511511
 
 # Installation and usage
 
@@ -12,11 +12,11 @@ A Docker container can be used to cleanly compile the module and get a **.deb** 
 
 ## Create the Docker build image
 
-Run the following command to create a Docker build image:
+Run the following command to create a Docker build image, if you don't have created it yet:
 
 > docker build -t dkmsbuilder .
 
-Where `dkmsbuilder` is the container's image name (you can use your own name) and `.` is the directory where the file `Dockerfile` resides (this project's root).
+Where `dkmsbuilder` is the container's image name (you can use your own name, but write it down for later) and `.` is the directory where the file `Dockerfile` resides (this project's root).
 
 ## Launch the module builder script
 
@@ -24,30 +24,24 @@ Run:
 
 > ./build_module_package.sh dkmsbuilder
 
-Where `dkmsbuilder` should match the container's image name you created before. This script will search for the module's source code in the `./module` directory and will leave the resulting **.deb** file in the directory `./build`.
+Where `dkmsbuilder` is the container's image name you created before (or the name you specified when creating the image). This script will search for the module's source code in the `./module` directory and will leave the resulting **.deb** file in the directory `./build`.
 
 Note that the container has been designed to build modules as non-root user ('nobody:nogroup', to be precise). Make sure your `./build` directory should be writable by nobody:nogroup, or the creation will fail due to lack of privileges.
 
 ## Install the module
 
-Install the **.deb** file as usual. It will create a `cougar_500k` module for your running kernel.
-
-The `hid_generic` module must be unloaded before plugging in the keyboard. Otherwise, `hid_generic` will take on the device and this module will not have any effect.
+Install the **.deb** file as usual. It will create a `cougar_500k` module for your running kernel, as well as udev rules for properly binding the keyboard to it. This rules are required because `hid_generic` module takes on the keyboard. The udev rules unbind the device from `hid_generic`, then rebind it to this module.
 
 # TODO list and known bugs
 
 ## TODO
 
-* Handle all extended keys, not only the 8-key sample mapping.
 * Make this driver the first option for Cougar 500k devices, not the default `hid_generic`.
+* All special keys (macro recording, led preferences and FN key combos) are handled by the hardware itself, so no special handling is required. Anyways, the keys are detected by the module (although it does nothing with them), so it would be good to write some kind of userspace tool to enrich the user experience.
 * A lot more, for sure.
-
-## Known bugs
-
-* A kernel Oops is raised when the device is disconnected. It happens with the `.remove` function being installed or not. This will not be a problem if you're using the keyboard without unplugging it, but surely this bug deserves a fix.
 
 # A note to users/maintainers/volunteers
 
-This is my very first implementation of anything related to linux kernel code, so please be patient. I don't know well the USB low-level protocol so I cannot provide any support. Feel free to contact me if you believe I can help you, but don't expect any solution: I will do my best.
+This is my very first implementation of anything related to linux kernel code, so please be patient. I don't know well the USB low-level protocol so I cannot provide any support apart from a very basic support. Feel free to contact me if you believe I can help you, but don't expect any solution: I will try my best.
 
 If you want to enhance/improve this code and you don't have a keyboard to test, I can send you data, keycodes or any information you might need.
