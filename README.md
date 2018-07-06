@@ -42,6 +42,4 @@ Install the **.deb** file as usual. It will create a `cougar_500k` module for yo
 
 # A note to users/maintainers/volunteers
 
-This is my very first implementation of anything related to linux kernel code, so please be patient. I don't know well the USB low-level protocol so I cannot provide any support apart from a very basic support. Feel free to contact me if you believe I can help you, but don't expect any solution: I will try my best.
-
-If you want to enhance/improve this code and you don't have a keyboard to test, I can send you data, keycodes or any information you might need.
+This is my very first implementation of anything related to linux kernel code, so please be patient. Feel free to contact me if you believe I can help you, but don't expect too much: I will try my best.
