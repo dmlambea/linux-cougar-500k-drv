@@ -43,3 +43,5 @@ Install the **.deb** file as usual. It will create a `cougar_500k` module for yo
 # A note to users/maintainers/volunteers
 
 This is my very first implementation of anything related to linux kernel code, so please be patient. Feel free to contact me if you believe I can help you, but don't expect too much: I will try my best.
+
+If you want to enhance/improve this code and you don't have a keyboard to test, I can send you data, keycodes or any information you might need.
