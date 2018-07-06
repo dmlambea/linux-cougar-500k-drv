@@ -2,6 +2,7 @@
 
 SRC=/src
 TARGET=/build
+KERNELSRC=/kernelsrc
 
 # This script creates the .deb file for a DKMS module,
 # given its name and version. The source code must
@@ -22,9 +23,8 @@ echo "Building driver $NAME-$VER from $SRC onto $BUILDDIR"
 mkdir -p "$BUILDDIR"
 cp -r "$SRC"/* "$BUILDDIR/"
 
-set -e
 dkms add -m $NAME -v $VER
-dkms build -m $NAME -v $VER
+dkms build -m $NAME -v $VER --kernelsourcedir "$KERNELSRC"/linux-headers-$(uname -r)
 dkms mkdsc -m $NAME -v $VER --source-only
 dkms mkdeb -m $NAME -v $VER --source-only
 

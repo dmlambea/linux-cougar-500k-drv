@@ -2,7 +2,7 @@ FROM ubuntu:18.04
 LABEL maintainer 'Daniel M. Lambea <dmlambea@gmail.com>'
 
 RUN apt update && \
-	apt install -y --no-install-recommends build-essential debhelper dkms linux-headers-generic fakeroot && \
+	apt install -y --no-install-recommends build-essential debhelper dkms fakeroot && \
 	rm -rf /var/lib/apt/lists/*
 
 COPY  /container_scripts/dkmsbuild.sh /usr/local/bin/
@@ -14,5 +14,6 @@ USER nobody
 
 VOLUME /src
 VOLUME /build
+VOLUME /kernelsrc
 
 CMD ['/usr/local/bin/dkmsbuild.sh']
