@@ -3,7 +3,6 @@
  *
  *  Cougar 500k Gaming Keyboard support
  *
- *  Inspired by, and parts copied from, aziokbd.c, Copyright (c) 2013 Colin Svingen
  */
 
 /*
@@ -25,19 +24,15 @@
  * Mail your message to Daniel M. Lambea <dmlambea@gmail.com>
  */
 
-#include <linux/kernel.h>
-#include <linux/slab.h>
-#include <linux/module.h>
-#include <linux/init.h>
-#include <linux/usb/input.h>
 #include <linux/hid.h>
+#include <linux/module.h>
 #include <linux/usb.h>
 
 /*
  * Version Information
  */
 #define DRIVER_NAME                "cougar_500k"
-#define DRIVER_VERSION             "0.5"
+#define DRIVER_VERSION             "0.6"
 #define DRIVER_AUTHOR              "Daniel M. Lambea <dmlambea@gmail.com>"
 #define DRIVER_DESC                "Cougar 500k Gaming Keyboard Driver"
 #define DRIVER_LICENSE             "GPL"
@@ -46,6 +41,7 @@
 #define USB_DEVICE_ID_COUGAR_500K  0x500a
 
 #define COUGAR_KEYB_INTFNO         0
+#define COUGAR_MOUSE_INTFNO        1
 #define COUGAR_RESERVED_INTFNO     2
 
 #define COUGAR_RESERVED_FLD_CODE   1
@@ -81,22 +77,6 @@ MODULE_LICENSE(DRIVER_LICENSE);
 MODULE_DEVICE_TABLE(hid, cougar_id_table);
 MODULE_INFO(key_mappings, "G1-G6 are mapped to F13-F18");
 
-static __u8 cougar_500k_rdesc_reserved_intf_fixup[] = {
-    0x05, 0x01,        // Usage Page (Generic Desktop Ctrls)
-    0x09, 0x06,        // Usage (Keyboard)
-    0xA1, 0x01,        // Collection (Application)
-    0x05, 0x07,        //   Usage Page (Kbrd/Keypad)
-    0x15, 0x00,        //   Logical Minimum (0)
-    0x26, 0xFF, 0x00,  //   Logical Maximum (255)
-    0x09, 0x30,        //   Usage (0x30)
-    0x75, 0x08,        //   Report Size (8)
-    0x95, 0x08,        //   Report Count (8)
-    0x81, 0x02,        //   Input (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position)
-    0x09, 0x31,        //   Usage (0x31)
-    0x91, 0x02,        //   Output (Data,Var,Abs,No Wrap,Linear,Preferred State,No Null Position,Non-volatile)
-    0xC0,              // End Collection
-};
-
 /* Default key mappings */
 static unsigned char cougar_mapping[][2] = {
     { COUGAR_KEY_G1,   KEY_F13 },
@@ -111,7 +91,7 @@ static unsigned char cougar_mapping[][2] = {
 
 /* This struct holds the input device from the keyboard interface (intf COUGAR_KEYB_INTFNO) */
 /* to be used by faked keyboard intf COUGAR_RESERVED_INTFNO. */
-struct cougar_data {
+struct cougar_kbd_data {
     struct hid_device *owner;
     struct input_dev  *input;
 };
@@ -124,13 +104,13 @@ struct cougar_data {
  */ 
 static inline void cougar_apply_max_usage_fixup(struct hid_device *hdev, __u16 *usage) {
     if (*usage >= (HID_MAX_USAGES-1) ) {
-        hid_info(hdev, "%x usages exceeds max. allowed of %x: fixup applied", *usage, (HID_MAX_USAGES-1) );
+        hid_warn(hdev, "%x usages exceeds max. allowed of %x: fixup applied", *usage, (HID_MAX_USAGES-1) );
         *usage = (HID_MAX_USAGES-1);
     }
 }
 
 /**
- * cougar_report_fixup() - rdesc fixup for intf 1 and 2
+ * cougar_report_fixup() - rdesc fixup for mouse interface
  *
  * @hdev: the device
  * @rdesc: pointer to current rdesc from the device
@@ -142,20 +122,14 @@ static __u8 *cougar_report_fixup(struct hid_device *hdev, __u8 *rdesc, unsigned 
     /* Check for the correct device */
     if (hdev->vendor != USB_VENDOR_ID_COUGAR ||
         hdev->product != USB_DEVICE_ID_COUGAR_500K) {
-        hid_warn(hdev, "report descriptor fixup not applied, unsupported device: %x:%x", hdev->vendor, hdev->product);
+        hid_warn(hdev, "report descriptor fixup not applied, unsupported device: %x:%x",
+            hdev->vendor, hdev->product);
         return rdesc;
     }
 
-    switch (intf->cur_altsetting->desc.bInterfaceNumber) {
-    case 1:
+    if (intf->cur_altsetting->desc.bInterfaceNumber == COUGAR_MOUSE_INTFNO) {
         /* Overflowing usage is at position 0x73 */
         cougar_apply_max_usage_fixup(hdev, (__u16 *)(&rdesc[0x73]));
-        break;
-    case COUGAR_RESERVED_INTFNO:
-        /* Reserved interface rdesc must be completely replaced for a fake keyboard descriptor */
-        rdesc = cougar_500k_rdesc_reserved_intf_fixup;
-        *rsize = sizeof(cougar_500k_rdesc_reserved_intf_fixup);
-        break;
     }
     return rdesc;
 }
@@ -189,129 +163,138 @@ static struct hid_device *cougar_get_sibling_hid_device(struct hid_device *hdev,
 }
 
 /**
- * cougar_probe() - probe function
+ * cougar_probe()
  *
  * @hdev: the current device which a sibling hdev is being searched for
  * @intfno: the intf number of the hid_device we're looking for
  */
 static int cougar_probe(struct hid_device *hdev, const struct hid_device_id *id) {
-    struct cougar_data *internal = NULL;
+    struct cougar_kbd_data *kbd = NULL;
     struct hid_device *siblingHdev;
+    unsigned int mask;
     int ret;
+    __u8 intfno;
 
     struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-    hid_dbg(hdev, "about to probe intf %d", intf->cur_altsetting->desc.bInterfaceNumber);
+    intfno = intf->cur_altsetting->desc.bInterfaceNumber;
+    hid_dbg(hdev, "about to probe intf %d", intfno);
 
-    /* Cougar internal data structure must be created before probing COUGAR_KEYB_INTFNO
-     * because the cougar_mapping_configured will want this struct to exist
+    /* Cougar keyboard data structure must be created before probing COUGAR_KEYB_INTFNO
+     * because the cougar_mapping_configured will want this struct to exist in advance
      * so that it can set the input device to be located later in COUGAR_RESERVED_INTFNO probe.
      */
-    if (intf->cur_altsetting->desc.bInterfaceNumber == COUGAR_KEYB_INTFNO) {
-        internal = devm_kzalloc(&hdev->dev, sizeof(*internal), GFP_KERNEL);
-        if (internal == NULL) {
-            hid_err(hdev, "can't alloc keyboard descriptor");
+    if (intfno == COUGAR_KEYB_INTFNO) {
+        kbd = devm_kzalloc(&hdev->dev, sizeof(*kbd), GFP_KERNEL);
+        if (kbd == NULL) {
+            hid_err(hdev, "can't alloc internal struct");
             return -ENOMEM;
         }
-        hid_set_drvdata(hdev, internal);
-        hid_dbg(hdev, "driver data set to %px", internal);
+        hid_dbg(hdev, "attaching kbd data to intf %d", intfno);
+        hid_set_drvdata(hdev, kbd);
     }
-
+    
     /* Parse and start hw */
     ret = hid_parse(hdev);
     if (ret) {
         goto err;
     }
-    ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT);
+    
+    /* Reserved, custom vendor interface connects hidraw only */
+    if (intfno == COUGAR_RESERVED_INTFNO) {
+        mask = HID_CONNECT_HIDRAW;
+    } else {
+        mask = HID_CONNECT_DEFAULT;
+    }
+    ret = hid_hw_start(hdev, mask);
     if (ret) {
         goto err;
     }
-
-    /* Before finishing intf COUGAR_RESERVED_INTFNO probe, cougar internal data has to be located and
-     * remembered. The descriptor ownership has to be retained by intf COUGAR_KEYB_INTFNO, so that
-     * its .remove hook can free the associated memory.
+    
+    /* Before finishing custom interface probe, cougar keyboard data has to be located and
+     * remembered. The descriptor ownership has to be retained by the keyboard interface,
+     * so that its ".remove" hook can free the associated memory.
      */
-    if (intf->cur_altsetting->desc.bInterfaceNumber == COUGAR_RESERVED_INTFNO) {
+    if (intfno == COUGAR_RESERVED_INTFNO) {
+        /* Search for the keyboard */
         siblingHdev = cougar_get_sibling_hid_device(hdev, COUGAR_KEYB_INTFNO);
         if (siblingHdev == NULL) {
             hid_err(hdev, "no sibling hid device found for intf %d", COUGAR_KEYB_INTFNO);
             ret = -ENODEV;
-            goto err;
+            goto cleanuperr;
+        }
+        
+        kbd = hid_get_drvdata(siblingHdev);
+        if (kbd == NULL || kbd->input == NULL) {
+            hid_err(hdev, "keyboard descriptor not found in intf %d", COUGAR_KEYB_INTFNO);
+            ret = -ENODATA;
+            goto cleanuperr;
         }
 
-        internal = hid_get_drvdata(siblingHdev);
-        if (internal == NULL || internal->input == NULL) {
-            hid_err(hdev, "keyboard descriptor not found in intf %d", COUGAR_RESERVED_INTFNO);
-            ret = -ENODATA;
-            goto err;
+        /* And save its data on reserved, custom vendor intf. device */
+        hid_set_drvdata(hdev, kbd);
+        hid_dbg(hdev, "keyboard descriptor attached to intf %d", intfno);
+
+        /* Start receiving events */
+        ret = hid_hw_open(hdev);
+        if (ret) {
+            goto cleanuperr;
         }
-        hid_set_drvdata(hdev, internal);
-        hid_dbg(hdev, "keyboard descriptor attached to intf %d", COUGAR_RESERVED_INTFNO);
     }
-    hid_dbg(hdev, "intf %d probed successfully", intf->cur_altsetting->desc.bInterfaceNumber);
+    hid_dbg(hdev, "intf %d probed successfully", intfno);
 
     return 0;
+
+cleanuperr:
+    hid_hw_stop(hdev);
 err:
     hid_set_drvdata(hdev, NULL);
-    if (internal != NULL) {
-        if (internal->owner == hdev) {
-            devm_kfree(&hdev->dev, internal);
+    if (kbd != NULL) {
+        if (kbd->owner == hdev) {
+            devm_kfree(&hdev->dev, kbd);
         }
     }
     return ret;
 }
 
 /**
- * cougar_input_configured() - keeps track of the input device associated with intf COUGAR_KEYB_INTFNO
+ * cougar_input_configured() - keeps track of the keyboard's hid_input
  */
 static int cougar_input_configured(struct hid_device *hdev, struct hid_input *hidinput) {
-    struct cougar_data *internal;
+    struct cougar_kbd_data *kbd;
     struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-    if (intf->cur_altsetting->desc.bInterfaceNumber != COUGAR_KEYB_INTFNO) {
-        /* Skip interfaces other than COUGAR_KEYB_INTFNO, which is the one containing the configured hidinput */
-        hid_dbg(hdev, "skipping intf %d", intf->cur_altsetting->desc.bInterfaceNumber);
+    __u8 intfno = intf->cur_altsetting->desc.bInterfaceNumber;
+
+    if (intfno != COUGAR_KEYB_INTFNO) {
+        /* Skip interfaces other than COUGAR_KEYB_INTFNO,
+         * which is the one containing the configured hidinput
+         */
+        hid_dbg(hdev, "input_configured: skipping intf %d", intfno);
         return 0;
     }
-    internal = hid_get_drvdata(hdev);
-    internal->owner = hdev;
-    internal->input = hidinput->input;
-    hid_dbg(hdev, "intf %d internal data configured", intf->cur_altsetting->desc.bInterfaceNumber);
+    kbd = hid_get_drvdata(hdev);
+    kbd->owner = hdev;
+    kbd->input = hidinput->input;
+    hid_dbg(hdev, "input_configured: intf %d configured", intfno);
     return 0;
 }
 
 /**
- * cougar_raw_event() - processing of COUGAR_RESERVED_INTFNO special keystrokes
+ * cougar_raw_event() - converts custom events to input key events
  */
 static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report, u8 *data, int size) {
     struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
-    struct cougar_data *internal;
+    struct cougar_kbd_data *kbd;
     unsigned char action, code, transcode;
     int i;
 
     if (intf->cur_altsetting->desc.bInterfaceNumber != COUGAR_RESERVED_INTFNO) {
         return 0;
     }
-
+    
     // Enable this to see a dump of the data received from reserved interface 
-    // print_hex_dump(KERN_INFO, DRIVER_NAME " data : ", DUMP_PREFIX_OFFSET, 8, 1, data, size, 0);
+    //print_hex_dump(KERN_ERR, DRIVER_NAME " data : ", DUMP_PREFIX_OFFSET, 8, 1, data, size, 0);
+    
     code = data[COUGAR_RESERVED_FLD_CODE];
-    action = data[COUGAR_RESERVED_FLD_ACTION];
-
-    /* Try normal key mappings */
-    for (i = 0; cougar_mapping[i][0]; i++) {
-        if (cougar_mapping[i][0] == code) {
-            if (code == COUGAR_KEY_G6 && cougar_g6_is_space) {
-                transcode = KEY_SPACE;
-            } else {
-                transcode = cougar_mapping[i][1];
-            }
-            internal = hid_get_drvdata(hdev);
-            input_event(internal->input, EV_KEY, transcode, action);
-            input_sync(internal->input);
-            return -1;
-        }
-    }
-
-    /* Reserved key: must be processed individually */
     switch(code) {
     case COUGAR_KEY_FN:
         hid_dbg(hdev, "FN (special function) key is handled by the hardware itself");
@@ -331,20 +314,45 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report, 
     case COUGAR_KEY_LEDS:
         hid_dbg(hdev, "LED (led set) key is handled by the hardware itself");
         break;
+    default:
+        /* Try normal key mappings */
+        for (i = 0; cougar_mapping[i][0]; i++) {
+            if (cougar_mapping[i][0] == code) {
+                action = data[COUGAR_RESERVED_FLD_ACTION];
+                hid_dbg(hdev, "found mapping for code %x", code);
+                if (code == COUGAR_KEY_G6 && cougar_g6_is_space) {
+                    transcode = KEY_SPACE;
+                } else {
+                    transcode = cougar_mapping[i][1];
+                }
+                kbd = hid_get_drvdata(hdev);
+                input_event(kbd->input, EV_KEY, transcode, action);
+                input_sync(kbd->input);
+                hid_dbg(hdev, "translated to %x", transcode);
+                return 0;
+            }
+        }
+        hid_warn(hdev, "unmapped key code %d: ignoring", code);
     }
-    return -1;
+    return 0;
 }
 
 /**
- * cougar_remove() - frees the cougar internal data
+ * cougar_remove() - frees the cougar kbd data
  */
 static void cougar_remove(struct hid_device *hdev) {
-    struct cougar_data *internal = hid_get_drvdata(hdev);
-    hid_set_drvdata(hdev, NULL);
-    if (internal != NULL && internal->owner == hdev) {
-        devm_kfree(&hdev->dev, internal);
+    struct usb_interface *intf = to_usb_interface(hdev->dev.parent);
+    struct cougar_kbd_data *kbd = hid_get_drvdata(hdev);
+    
+    hid_dbg(hdev, "removing %d", intf->cur_altsetting->desc.bInterfaceNumber);
+    if (intf->cur_altsetting->desc.bInterfaceNumber == COUGAR_RESERVED_INTFNO) {
+        hid_hw_close(hdev);
     }
     hid_hw_stop(hdev);
+    hid_set_drvdata(hdev, NULL);
+    if (kbd != NULL && kbd->owner == hdev) {
+        devm_kfree(&hdev->dev, kbd);
+    }
 }
 
 /************************************************************************/
