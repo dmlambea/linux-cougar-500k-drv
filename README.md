@@ -1,4 +1,4 @@
-# linux-cougar-500k-drv
+# Linux hid-cougar kernel driver
 
 A functional Linux driver for the Cougar 500k Gaming Keyboard.
 
@@ -6,9 +6,11 @@ This driver solves the bug described here: https://bugs.launchpad.net/ubuntu/+so
 
 # Installation and usage
 
-This driver has been built and tested in Ubuntu Server 18.04 LTS, kernel 4.15.0-23-generic. Please refer to DKMS documentation (e.g., https://help.ubuntu.com/community/DKMS) for instructions on how to build a DKMS module for your distribution.
+This driver has been built and tested in Ubuntu Server 18.04 LTS, kernel 4.15.0-23-generic and latest kernel 4.18-rc3. Hopefully it will be accepted in mainline kernel. Until then, please refer to DKMS documentation (e.g., https://help.ubuntu.com/community/DKMS) for instructions on how to build this code as a DKMS module for your distribution.
 
-A Docker container can be used to cleanly compile the module and get a **.deb** file from it. The next sections explain how to use the provided Dockerfile to create a build container and how to use it for creating the module install package in **.deb** format.
+If you use Ubuntu, you may refer to the `releases` folder for a precompiled **.deb** file.
+
+Additionally, a Docker container can be used to cleanly compile the module and get a **.deb** file from it. The next sections explain how to use the provided Dockerfile to create a build container and how to use it for creating the module install package in **.deb** format.
 
 ## Create the Docker build image
 
@@ -30,7 +32,7 @@ Note that the container has been designed to build modules as non-root user ('no
 
 ## Install the module
 
-Install the **.deb** file as usual. It will create a `cougar_500k` module for your running kernel, as well as udev rules for properly binding the keyboard to it. This rules are required because `hid_generic` module takes on the keyboard. The udev rules unbind the device from `hid_generic`, then rebind it to this module.
+Install the **.deb** file as usual. It will create a `hid-cougar` module for your running kernel, as well as udev rules for properly binding the keyboard to it. This rules are required because `hid_generic` module takes on the keyboard. The udev rules unbind the device from `hid_generic`, then rebind it to this module.
 
 # TODO list and known bugs
 

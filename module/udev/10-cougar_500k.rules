@@ -1,5 +1,0 @@
-# Unbind keyboard from hid_generic and rebind it to cougar_500k
-
-ACTION=="add", KERNEL=="*:060B:500A.*", SUBSYSTEM=="hid", DRIVER=="hid-generic", \
-        RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/hid-generic/unbind'", \
-        RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/cougar_500k/bind'"

@@ -1,0 +1,6 @@
+# Unbind keyboard from hid_generic and rebind it to hid-cougar.
+# This will not be necessary from kernel 4.16 onwards.
+
+ACTION=="add", KERNEL=="*:060B:500A.*", SUBSYSTEM=="hid", DRIVER=="hid-generic", \
+        RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/hid-generic/unbind'", \
+        RUN+="/bin/sh -c 'echo $kernel > /sys/bus/hid/drivers/hid-cougar/bind'"

@@ -1,3 +1,3 @@
 #!/bin/sh
 
-rm -f /etc/udev/rules.d/10-cougar_500k.rules
+rm -f /etc/udev/rules.d/10-hid-cougar.rules
