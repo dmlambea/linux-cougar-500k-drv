@@ -95,7 +95,7 @@ static void cougar_fix_g6_mapping(struct hid_device *hdev)
 
 	for (i = 0; cougar_mapping[i][0]; i++) {
 		if (cougar_mapping[i][0] == COUGAR_KEY_G6) {
-			cougar_mapping[i][1] = 
+			cougar_mapping[i][1] =
 				cougar_g6_is_space ? KEY_SPACE : KEY_F18;
 			hid_info(hdev, "G6 mapped to %s\n",
 				 cougar_g6_is_space ? "space" : "F18");
@@ -103,7 +103,6 @@ static void cougar_fix_g6_mapping(struct hid_device *hdev)
 		}
 	}
 	hid_warn(hdev, "no mapping defined for G6/spacebar");
-	return;
 }
 
 /*
@@ -112,7 +111,7 @@ static void cougar_fix_g6_mapping(struct hid_device *hdev)
 static __u8 *cougar_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 				 unsigned int *rsize)
 {
-	if (rdesc[2] == 0x09 && rdesc[3] == 0x02 && 
+	if (rdesc[2] == 0x09 && rdesc[3] == 0x02 &&
 	    (rdesc[115] | rdesc[116] << 8) >= HID_MAX_USAGES) {
 		hid_info(hdev,
 			"usage count exceeds max: fixing up report descriptor\n");
@@ -126,7 +125,7 @@ static __u8 *cougar_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  * From wacom_sys.c
  */
 static bool compare_device_paths(struct hid_device *hdev_a,
-		                 struct hid_device *hdev_b, char separator)
+				 struct hid_device *hdev_b, char separator)
 {
 	int n1 = strrchr(hdev_a->phys, separator) - hdev_a->phys;
 	int n2 = strrchr(hdev_b->phys, separator) - hdev_b->phys;
@@ -159,7 +158,8 @@ static struct cougar_shared *cougar_get_shared_data(struct hid_device *hdev)
  */
 static void cougar_release_shared_data(struct kref *kref)
 {
-	struct cougar_shared *shared = container_of(kref, struct cougar_shared, kref);
+	struct cougar_shared *shared = container_of(kref,
+						    struct cougar_shared, kref);
 
 	mutex_lock(&cougar_udev_list_lock);
 	list_del(&shared->list);
@@ -180,9 +180,10 @@ static void cougar_remove_shared_data(void *resource)
 		cougar->shared = NULL;
 	}
 }
+
 /*
  * Bind the device group's shared data to this cougar struct.
- * If no shared data exists for this group, create and initialize it. 
+ * If no shared data exists for this group, create and initialize it.
  */
 static int cougar_bind_shared_data(struct hid_device *hdev, struct cougar *cougar)
 {
@@ -242,7 +243,7 @@ static int cougar_probe(struct hid_device *hdev,
 		connect_mask = HID_CONNECT_HIDRAW;
 	} else
 		connect_mask = HID_CONNECT_DEFAULT;
-	
+
 	error = hid_hw_start(hdev, connect_mask);
 	if (error) {
 		hid_err(hdev, "hw start failed\n");
@@ -254,7 +255,8 @@ static int cougar_probe(struct hid_device *hdev,
 		goto fail_stop_and_cleanup;
 
 	/* The custom vendor interface will use the hid_input registered
-	 * for the keyboard interface, in order to send translated key codes to it.
+	 * for the keyboard interface, in order to send translated key codes
+	 * to it.
 	 */
 	if (hdev->collection->usage == HID_GD_KEYBOARD) {
 		cougar_fix_g6_mapping(hdev);
@@ -280,7 +282,7 @@ fail:
 }
 
 /*
- * Converts events from vendor intf to input key events
+ * Convert events from vendor intf to input key events
  */
 static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
 			    u8 *data, int size)
@@ -311,6 +313,7 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
 static void cougar_remove(struct hid_device *hdev)
 {
 	struct cougar *cougar = hid_get_drvdata(hdev);
+
 	if (cougar) {
 		/* Stop the vendor intf to process more events */
 		if (cougar->shared)
@@ -322,7 +325,8 @@ static void cougar_remove(struct hid_device *hdev)
 }
 
 static struct hid_device_id cougar_id_table[] = {
-	{ HID_USB_DEVICE(USB_VENDOR_ID_SOLID_YEAR, USB_DEVICE_ID_COUGAR_500K_GAMING_KEYBOARD) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_SOLID_YEAR,
+			 USB_DEVICE_ID_COUGAR_500K_GAMING_KEYBOARD) },
 	{}
 };
 MODULE_DEVICE_TABLE(hid, cougar_id_table);
