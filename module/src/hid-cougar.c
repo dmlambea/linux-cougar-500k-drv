@@ -5,11 +5,11 @@
  *  Copyright (c) 2018 Daniel M. Lambea <dmlambea@gmail.com>
  *
  *  ChangeLog:
- *	v0.6 (dml) - First submit to kernel.org
- *	v0.7 (dml) - Deep refactor
- *	   - No usage of usb.h
- *	   - Shared memory now properly managed using krefs.
- *	   - Siblings now properly searched for
+ *    v0.6 (dml) - First submit to kernel.org
+ *    v0.7 (dml) - Deep refactor
+ *       - No usage of usb.h
+ *       - Shared memory now properly managed using krefs.
+ *       - Siblings now properly searched for
  */
 
 #include <linux/hid.h>
@@ -97,7 +97,7 @@ static void cougar_fix_g6_mapping(struct hid_device *hdev)
 		if (cougar_mapping[i][0] == COUGAR_KEY_G6) {
 			cougar_mapping[i][1] = 
 				cougar_g6_is_space ? KEY_SPACE : KEY_F18;
-			hid_info(hdev, "G6 mapped to %s",
+			hid_info(hdev, "G6 mapped to %s\n",
 				 cougar_g6_is_space ? "space" : "F18");
 			return;
 		}
@@ -113,9 +113,9 @@ static __u8 *cougar_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 				 unsigned int *rsize)
 {
 	if (rdesc[2] == 0x09 && rdesc[3] == 0x02 && 
-		(rdesc[115] | rdesc[116] << 8) >= HID_MAX_USAGES) {
+	    (rdesc[115] | rdesc[116] << 8) >= HID_MAX_USAGES) {
 		hid_info(hdev,
-			"usage count exceeds max: fixing up report descriptor");
+			"usage count exceeds max: fixing up report descriptor\n");
 		rdesc[115] = ((HID_MAX_USAGES-1) & 0xff);
 		rdesc[116] = ((HID_MAX_USAGES-1) >> 8);
 	}
@@ -126,7 +126,7 @@ static __u8 *cougar_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  * From wacom_sys.c
  */
 static bool compare_device_paths(struct hid_device *hdev_a,
-						 struct hid_device *hdev_b, char separator)
+		                 struct hid_device *hdev_b, char separator)
 {
 	int n1 = strrchr(hdev_a->phys, separator) - hdev_a->phys;
 	int n2 = strrchr(hdev_b->phys, separator) - hdev_b->phys;
@@ -283,7 +283,7 @@ fail:
  * Converts events from vendor intf to input key events
  */
 static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
-				u8 *data, int size)
+			    u8 *data, int size)
 {
 	struct cougar *cougar;
 	unsigned char code, action;
@@ -291,7 +291,7 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
 
 	cougar = hid_get_drvdata(hdev);
 	if (!cougar->special_intf || !cougar->shared ||
-		!cougar->shared->input || !cougar->shared->enabled)
+	    !cougar->shared->input || !cougar->shared->enabled)
 		return 0;
 
 	code = data[COUGAR_FIELD_CODE];
@@ -299,11 +299,12 @@ static int cougar_raw_event(struct hid_device *hdev, struct hid_report *report,
 	for (i = 0; cougar_mapping[i][0]; i++) {
 		if (code == cougar_mapping[i][0]) {
 			input_event(cougar->shared->input, EV_KEY,
-					cougar_mapping[i][1], action);
+				    cougar_mapping[i][1], action);
 			input_sync(cougar->shared->input);
 			return 0;
 		}
 	}
+	hid_warn(hdev, "unmapped special key code %x: ignoring\n", code);
 	return 0;
 }
 
@@ -327,12 +328,12 @@ static struct hid_device_id cougar_id_table[] = {
 MODULE_DEVICE_TABLE(hid, cougar_id_table);
 
 static struct hid_driver cougar_driver = {
-	.name		   = "cougar",
-	.id_table	   = cougar_id_table,
-	.report_fixup	   = cougar_report_fixup,
-	.probe		  = cougar_probe,
-	.remove		 = cougar_remove,
-	.raw_event	  = cougar_raw_event,
+	.name			= "cougar",
+	.id_table		= cougar_id_table,
+	.report_fixup		= cougar_report_fixup,
+	.probe			= cougar_probe,
+	.remove			= cougar_remove,
+	.raw_event		= cougar_raw_event,
 };
 
 module_hid_driver(cougar_driver);
