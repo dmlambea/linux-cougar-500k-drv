@@ -1,12 +1,12 @@
 # Linux hid-cougar kernel driver
 
-A functional Linux driver for the Cougar 500k Gaming Keyboard.
+Linux driver for the Cougar 500k-700k Gaming Keyboards.
 
 This driver solves the bug described here: https://bugs.launchpad.net/ubuntu/+source/linux/+bug/1511511
 
 # Installation and usage
 
-This driver has been built and tested in Ubuntu Server 18.04 LTS, kernel 4.15.0-23-generic and latest kernel 4.18-rc3. Hopefully it will be accepted in mainline kernel. Until then, please refer to DKMS documentation (e.g., https://help.ubuntu.com/community/DKMS) for instructions on how to build this code as a DKMS module for your distribution.
+This driver has been built and tested in Ubuntu Server 18.04 LTS, kernel 4.15.0-23-generic and latest kernel 4.18-rc3. It has been accepted in mainline kernel v4.20, but the code is still here for you to build the module for your kernel if you need to. Please refer to DKMS documentation (e.g., https://help.ubuntu.com/community/DKMS) for instructions on how to build this code as a DKMS module for your distribution.
 
 If you use Ubuntu, you may refer to the `releases` folder for a precompiled **.deb** file.
 
@@ -38,12 +38,5 @@ Install the **.deb** file as usual. It will create a `hid-cougar` module for you
 
 ## TODO
 
-* Make this driver the first option for Cougar 500k devices, not the default `hid_generic`.
 * All special keys (macro recording, led preferences and FN key combos) are handled by the hardware itself, so no special handling is required. Anyways, the keys are detected by the module (although it does nothing with them), so it would be good to write some kind of userspace tool to enrich the user experience.
 * A lot more, for sure.
-
-# A note to users/maintainers/volunteers
-
-This is my very first implementation of anything related to linux kernel code, so please be patient. Feel free to contact me if you believe I can help you, but don't expect too much: I will try my best.
-
-If you want to enhance/improve this code and you don't have a keyboard to test, I can send you data, keycodes or any information you might need.
